@@ -32,6 +32,10 @@ Note: There are several different ways to solve these tasks, feel free to come u
 Read the cocktail dataset from: <https://github.com/nthun/cocktail-balance> You can also find the codebook there.
 
 ```{r}
+file_path <- "C:/Users/Andris/Documents/Bori/pszicho_MA/Komplex_adatelemzési_eljárások/Fall-2024/cocktail_data.tsv" 
+
+cocktail_data <- read_tsv(file_path)
+
 
 ```
 
@@ -41,6 +45,30 @@ The ingredients are currently in a single cell for each cocktail. It would be be
 
 ```{r}
 
+cleaned_data <- cocktail_data %>%
+  separate_rows(ingredients, sep = "<br\\s*/?>|<b4\\s*/?>") 
+
+cleaned_data <- cleaned_data %>%
+  mutate(
+    ingredients = ingredients %>%
+      str_replace_all("(\\d+\\s?/?\\d*\\s?(dashes|bsps|tbsps|tsps|drops|slices|cups|oz|ml|cl|dash|bsp|tbsp|tsp|drop|slice|cup|fl oz|%)|\\s?abv\\s?|\\s?proof\\s?)", "") %>%
+      str_replace_all("\\(.*\\)", "") %>%
+      str_replace_all("\\d+", "") %>%
+      str_replace_all("\\.", "")  %>%
+      str_trim() %>%
+      str_squish()
+  )
+
+cleaned_data <- cleaned_data %>%
+  separate_rows(ingredients, sep = " or ")
+
+cleaned_data <- cleaned_data %>%
+  mutate(
+    ingredients = ingredients %>%
+      str_replace_all("centrifuge-clarified grapefruit juice", "grapefruit juice") %>%
+       str_replace_all("Luxardo Marschino", "Luxardo Maraschino") %>%
+      str_replace_all("\\bsimple\\b(?!\\s+syrup)", "simple syrup")) 
+
 ```
 
 ## 3. All ingredients in alphabetical order
@@ -48,48 +76,136 @@ The ingredients are currently in a single cell for each cocktail. It would be be
 Before opening the bar, you need to find a reliable supplier that has all the ingredients. You need to send a list of all possible ingredients you will need. They don't need the quantities (i.e. how many of these are needed), just the names of the ingredients.
 
 ```{r}
+ingredients_list <- cleaned_data %>%
+  select(ingredients) %>%
+  unlist() %>% 
+  unique() %>%  
+  sort() %>%
+  str_replace_all("cr\\u008fme",   "creme")
+
+
+ingredients_list
+
 
 ```
 
 ## 4. Number of unique ingredients
 
-How many different ingredients you will need?
+How many different ingredients you will need? 58
 
 ```{r}
+num_unique_ingredients <- cleaned_data %>% 
+  select(ingredients) %>%  
+  unlist() %>% 
+  unique() %>% 
+  length()
+
+num_unique_ingredients
+
+
 
 ```
 
 ## 5. What are the top 10 ingredients?
 
 What are the 10 most frequently used ingredients? If there are ties, you can list more than 10.
+lemon juice, simple syrup, gin, sweet vermouth, Angostura bitters, lime juice, saline solution, water, rye, Luxardo Maraschino
+
 
 ```{r}
+top_ingredients <- cleaned_data %>%
+  select(ingredients) %>%    
+   unlist() %>%      
+  table() %>% 
+  sort(decreasing = TRUE) %>%
+  head(10)      
+
+top_ingredients
 
 ```
 
-## 6. Which cocktail(s) has/have the most ingredients?
+## 6. Which cocktail(s) has/have the most ingredients? 
 
 Count the number of ingredients and filter all the cocktails that has that many.
 
+Carbonated Negroni has the most igredients: 7 (but keep in mind clarified lime juice or champagne acid was split up to 2 ingredients)
+
+
 ```{r}
+ingredient_count <- cleaned_data %>%
+   group_by(name) %>%
+  summarise(ingredient_count = n())
+
+max_ingredients <- max(ingredient_count$ingredient_count)
+
+cocktails_with_max_ingredients <- ingredient_count %>%
+  filter(ingredient_count == max_ingredients)
+
+cocktails_with_max_ingredients
+
+```
+## 6. Which cocktail(s) has/have the most ingredients? 
+
+if we assume that "clarified lime juice or champagne acid" is only one ingredient --> Blender Margarita, Carbonated Negroni, Clover Club, De La Louisiane, Pink Lady, Vieux Carre have all 6 ingredients 
+
+
+```{r}
+ingredient_count <- cleaned_data %>%
+   group_by(name) %>%
+  summarise(ingredient_count = n())%>%
+   filter(ingredient_count >= 6)
+
+
 
 ```
 
 ## 7. How many ingredients appear in only one cocktail (rare ingredient)?
+23
 
 ```{r}
+ingredient_counts <- cleaned_data %>%
+  count(ingredients) %>%
+  filter(n == 1)
 
+nrow(ingredient_counts)
 ```
 
 ## 8. Which cocktail has an ingredient that is only used in one cocktail?
+Pisco Sour, Pink Lady, Clover Club, Blood and Sand, Alexander, Cosmopolitan (Modern/Bastardized), 20th Century Cocktail, Aviation, Last Word, Blackthorn, Hanky Panky, Martinez, Brooklyn, Rusty Nail, De La Louisiane, Blender Daiquiri, Blender Margarita, Blender Whiskey Sour, Gin and Tonic (Dry), Gin and Juice Agar
+
 
 ```{r}
+cocktails_with_rare_ingredients <- cleaned_data %>%
+  inner_join(ingredient_counts, by = "ingredients") %>%
+  select(name, ingredients) %>%
+  distinct()
+
+cocktails_with_rare_ingredients
 
 ```
 
 ## 9. What are the cocktails without rare ingredients?
+Whiskey Sour, Daiquiri with More Lime, Honeysuckle, Classic Daiquiri, Hemingway Daiquiri, Brown Derby, Gold Rush, Southside, Bee's Knees, Fresh Lime Gimlet, Corpse Reviver, Jack Rose, Margarita, Sidecar, Champs-Elysses, Between the Sheets, Brady Crusta, Pegu Club, Blinker, Negroni, Manhatan (Boubon, 45% abv), Bobby Burns, Rob Roy, Old Pal, Vieux Carre, Bijou, Manhatan (Rye, 50% abv), Improved Whiskey Cocktail, Widow's Kiss, Old Fashioned, Carbonated Margarita, Carbonated Whiskey Sour, Carbonated Negroni, Gin and Juice Centrifuge, Chartruth
 
 ```{r}
+ingredient_count <- cleaned_data %>%
+  count(ingredients, name = "count")
+
+ingredient_count <- ingredient_count %>%
+  mutate(count = as.numeric(count))
+
+rare_ingredients <- ingredient_count %>%
+  filter(count == 1) %>%
+  pull(ingredients)
+
+cocktails_without_rare_ingredients <- cleaned_data %>%
+  group_by(name) %>%
+  filter(!any(ingredients %in% rare_ingredients)) %>%
+  pull(name) %>%
+  unique()
+
+cocktails_without_rare_ingredients
+
   
 ```
 
@@ -98,6 +214,16 @@ Count the number of ingredients and filter all the cocktails that has that many.
 Create a matrix that shows all cocktail names as rows and all ingredients as columns. When a cocktail requires an ingredient, there should be an "X" in the cell, otherwise, the cell should remain empty. Example:
 
 ```{r}
+cheat_sheet <- cleaned_data %>%
+  distinct(name, ingredients) %>%
+  pivot_wider(
+    names_from = ingredients, 
+    values_from = ingredients, 
+    values_fill = list(ingredients = "")
+  ) %>%
+  mutate(across(-name, ~ ifelse(. != "", "X", "")))
+
+print(cheat_sheet)
 
 ```
 
