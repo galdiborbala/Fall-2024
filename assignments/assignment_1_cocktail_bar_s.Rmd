@@ -17,6 +17,7 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(readr)
 ```
 
 # Background
@@ -67,7 +68,11 @@ cleaned_data <- cleaned_data %>%
     ingredients = ingredients %>%
       str_replace_all("centrifuge-clarified grapefruit juice", "grapefruit juice") %>%
        str_replace_all("Luxardo Marschino", "Luxardo Maraschino") %>%
-      str_replace_all("\\bsimple\\b(?!\\s+syrup)", "simple syrup")) 
+      str_replace_all("\\bsimple\\b(?!\\s+syrup)", "simple syrup") %>%
+      str_replace_all("\\bsugard -rum\\b", "rum") %>%
+      str_replace_all("\\bsugared -rye\\b", "rye") %>%
+    str_replace_all("\\bsaline\\b(?!\\s+solution)", "saline solution")
+  )
 
 ```
 
@@ -91,7 +96,7 @@ ingredients_list
 
 ## 4. Number of unique ingredients
 
-How many different ingredients you will need? 58
+How many different ingredients you will need? 56
 
 ```{r}
 num_unique_ingredients <- cleaned_data %>% 
@@ -160,7 +165,7 @@ ingredient_count <- cleaned_data %>%
 ```
 
 ## 7. How many ingredients appear in only one cocktail (rare ingredient)?
-23
+21
 
 ```{r}
 ingredient_counts <- cleaned_data %>%
@@ -171,7 +176,7 @@ nrow(ingredient_counts)
 ```
 
 ## 8. Which cocktail has an ingredient that is only used in one cocktail?
-Pisco Sour, Pink Lady, Clover Club, Blood and Sand, Alexander, Cosmopolitan (Modern/Bastardized), 20th Century Cocktail, Aviation, Last Word, Blackthorn, Hanky Panky, Martinez, Brooklyn, Rusty Nail, De La Louisiane, Blender Daiquiri, Blender Margarita, Blender Whiskey Sour, Gin and Tonic (Dry), Gin and Juice Agar
+Pisco Sour, Pink Lady, Clover Club, Blood and Sand, Alexander, Cosmopolitan (Modern/Bastardized), 20th Century Cocktail, Aviation, Blackthorn, Hanky Panky, Martinez, Brooklyn, Rusty Nail, De La Louisiane, Blender Daiquiri, Blender Margarita, Gin and Tonic (Dry), Gin and Juice Agar
 
 
 ```{r}
@@ -185,7 +190,7 @@ cocktails_with_rare_ingredients
 ```
 
 ## 9. What are the cocktails without rare ingredients?
-Whiskey Sour, Daiquiri with More Lime, Honeysuckle, Classic Daiquiri, Hemingway Daiquiri, Brown Derby, Gold Rush, Southside, Bee's Knees, Fresh Lime Gimlet, Corpse Reviver, Jack Rose, Margarita, Sidecar, Champs-Elysses, Between the Sheets, Brady Crusta, Pegu Club, Blinker, Negroni, Manhatan (Boubon, 45% abv), Bobby Burns, Rob Roy, Old Pal, Vieux Carre, Bijou, Manhatan (Rye, 50% abv), Improved Whiskey Cocktail, Widow's Kiss, Old Fashioned, Carbonated Margarita, Carbonated Whiskey Sour, Carbonated Negroni, Gin and Juice Centrifuge, Chartruth
+Whiskey Sour, Daiquiri with More Lime, Honeysuckle, Classic Daiquiri, Hemingway Daiquiri, Brown Derby, Gold Rush, Southside, Bee's Knees, Fresh Lime Gimlet, Corpse Reviver #2, Jack Rose, Margarita, Sidecar, Champs-Elysses, Last Word, Between the Sheets, Brady Crusta, Pegu Club, Blinker, Negroni, Manhatan (Boubon, 45% abv), Bobby Burns, Rob Roy, Old Pal, Vieux Carre, Bijou, Manhatan (Rye, 50% abv), Improved Whiskey Cocktail, Widow's Kiss, Old Fashioned, Blender Whiskey Sour, Carbonated Margarita, Carbonated Whiskey Sour, Carbonated Negroni, Gin and Juice Centrifuge, Chartruth
 
 ```{r}
 ingredient_count <- cleaned_data %>%
