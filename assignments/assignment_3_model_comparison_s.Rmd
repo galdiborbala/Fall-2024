@@ -59,6 +59,11 @@ In your discussion of the findings, briefly interpret the results of the above a
 Read the dataset used in this assignment. Pay attention to the extension of the datafile.
 
 ```{r}
+library(readxl)
+
+dataset <- read_excel("Bori/pszicho_MA/Komplex_adatelemzési_eljárások/Fall-2024/data/assignment_3_dataset_.xlsx")
+
+View(dataset) 
 
 ```
 
@@ -69,6 +74,25 @@ Read the dataset used in this assignment. Pay attention to the extension of the 
 Run an exploratory data analysis (EDA) to investigate the dataset.
 
 ```{r}
+summary(dataset) 
+
+colSums(is.na(dataset)) 
+
+dataset %>%
+  select(pain, age, STAI_trait, pain_cat, cortisol_saliva, mindfulness, weight, IQ, household_income) %>%
+  gather(key = "variable", value = "value") %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(bins = 20, fill = "skyblue", color = "black", alpha = 0.7) +
+  facet_wrap(~variable, scales = "free", ncol = 3) +
+  theme_minimal() +
+  labs(title = "Distribution of Continuous Variables", x = "Value", y = "Frequency")
+
+table(dataset$sex) 
+
+ggplot(dataset, aes(x = sex)) +
+  geom_bar(fill = "lightgreen", color = "black", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Distribution of Sex", x = "Sex", y = "Count")
 
 ```
 
@@ -77,7 +101,11 @@ Run an exploratory data analysis (EDA) to investigate the dataset.
 If you find values in the dataset during the EDA, that are not correct based on the provided descriptions of the variables of the dataset please correct them here.
 
 ```{r}
+dataset$pain <- ifelse(dataset$pain == 50, 5, dataset$pain)
 
+dataset <- dataset %>% filter(mindfulness <= 6)
+
+dataset$sex <- recode(dataset$sex, "woman" = "female")
 ```
 
 ### Model diagnostics
@@ -86,6 +114,9 @@ If you find values in the dataset during the EDA, that are not correct based on 
 In order to test the more complex model for outliers and to test the assumptions first build the model.
 
 ```{r}
+complex_model <- lm(pain ~ age + sex + STAI_trait + pain_cat + mindfulness + cortisol_saliva + cortisol_serum, data = dataset)
+
+summary(complex_model)
 
 ```
 
@@ -94,7 +125,14 @@ In order to test the more complex model for outliers and to test the assumptions
 Check for outlier values in the model.
 
 ```{r}
+cooks_d <- cooks.distance(complex_model)
 
+plot(cooks_d, type = "h", main = "Cook's Distance", ylab = "Cook's Distance", xlab = "Observation Index")
+abline(h = 4 / nrow(dataset), col = "red", lty = 2) 
+
+influential_outliers <- which(cooks_d > 4 / nrow(dataset))
+
+influential_outliers
 ```
 
 #### Checking assumptions
@@ -102,19 +140,45 @@ Check for outlier values in the model.
 Check the normality assumption.
 
 ```{r}
+residuals_complex <- residuals(complex_model)
 
+
+hist(residuals_complex, main = "Histogram of Residuals", xlab = "Residuals", col = "lightblue", border = "black", probability = TRUE, breaks = 20)
+
+
+curve(dnorm(x, mean = mean(residuals_complex), sd = sd(residuals_complex)), add = TRUE, col = "red", lwd = 2)
+
+
+qqnorm(residuals_complex, main = "Q-Q Plot of Residuals")
+
+qqline(residuals_complex, col = "red", lwd = 2)
 ```
 
 Check the linearity assumption.
 
 ```{r}
+library(car)
+
+ceresPlots(complex_model)
 
 ```
 
 Check the homoscedasticty assumption (homogeneity of variance).
 
 ```{r}
+fitted_values_complex <- fitted(complex_model)
 
+residuals_complex <- residuals(complex_model)
+
+plot(fitted_values_complex, residuals_complex,
+     main = "Residuals vs Fitted Values",
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     pch = 19, col = "blue")
+
+abline(h = 0, col = "red", lwd = 2)
+
+lines(lowess(fitted_values_complex, residuals_complex), col = "green", lwd = 2)
 ```
 
 Check the multicollinearity assumption.
@@ -126,20 +190,36 @@ https://statisticalhorizons.com/multicollinearity
 http://blog.minitab.com/blog/understanding-statistics/handling-multicollinearity-in-regression-analysis
 
 ```{r}
+library(car)
 
+vif(complex_model)
+
+cor(dataset$cortisol_serum, dataset$cortisol_saliva) 
 ```
 
 ### Making decision based on model diagnostics
 
 If based on the assumption tests you decide to drop a predictor variable you should do that here. Create your updated model.
 
+I'll drop Cortisol_saliva (because cortisol_serum and cortisol_saliva are highly correlated r = 0.908) 
+
 ```{r}
+complex_model_updated <- lm(pain ~ age + sex + STAI_trait + pain_cat + mindfulness + cortisol_serum, data = dataset)
 
 ```
 
 #### Checking outliers of the updated model
 
 ```{r}
+cooks_d_updated <- cooks.distance(complex_model_updated)
+
+plot(cooks_d_updated, type = "h", main = "Cook's Distance for Updated Model", 
+     ylab = "Cook's Distance", xlab = "Observation Index")
+abline(h = 4 / nrow(dataset), col = "red", lty = 2)
+
+influential_outliers_updated <- which(cooks_d_updated > 4 / nrow(dataset))
+
+influential_outliers_updated
 
 ```
 
@@ -149,43 +229,147 @@ Normality assumption
 
 ```{r}
 
+residuals_updated <- residuals(complex_model_updated)
+
+qqnorm(residuals_updated, main = "Q-Q Plot of Residuals (Updated Model)")
+qqline(residuals_updated, col = "red", lwd = 2)
+
+hist(residuals_updated, 
+     main = "Histogram of Residuals (Updated Model)", 
+     xlab = "Residuals", 
+     col = "lightblue", 
+     border = "black", 
+     probability = TRUE, 
+     breaks = 20)
+
+curve(dnorm(x, mean = mean(residuals_updated), sd = sd(residuals_updated)), 
+      add = TRUE, 
+      col = "red", 
+      lwd = 2)
+
 ```
 
 Linearity assumption
 
 ```{r}
+library(car)
 
+ceresPlots(complex_model_updated) 
 ```
 
 Homoscedasticty assumption (homogeneity of variance)
 
 ```{r}
+residuals_updated <- residuals(complex_model_updated)
+
+fitted_values_updated <- fitted(complex_model_updated)
+
+plot(fitted_values_updated, residuals_updated, 
+     main = "Residuals vs. Fitted Values", 
+     xlab = "Fitted Values", 
+     ylab = "Residuals", 
+     col = "blue", 
+     pch = 20)
+
+abline(h = 0, col = "red", lwd = 2)
 
 ```
 
 Multicollinearity assumption
 
 ```{r}
+library(car)
 
+vif(complex_model_updated)
 ```
 
 ## Model comparison
 
 Create the simple model and get the results of the model that needs to be reported based on the What to report section.
 
+Adjusted R-squared = 0.06857
+F(2,156)=6.815
+p = .001453
+
 ```{r}
+simple_model <- lm(pain ~ age + sex, data = dataset) 
+
+summary(simple_model)
+
+library(lm.beta) 
+simple_model_coefs <- summary(simple_model)$coefficients
+
+simple_model_beta <- lm.beta(simple_model)
+
+simple_model_confint <- confint(simple_model)
+
+simple_model_table <- data.frame(
+  Predictor = rownames(simple_model_coefs),
+  Unstandardized_B = simple_model_coefs[, "Estimate"],
+  Standardized_Beta = simple_model_beta$standardized.coefficients,
+  `95%_CI_Lower` = simple_model_confint[, 1],
+  `95%_CI_Upper` = simple_model_confint[, 2],
+  P_value = simple_model_coefs[, "Pr(>|t|)"]
+)
+
+print("Simple Model Coefficients")
+print(simple_model_table)
 
 ```
 
 Create the more complex model based on the results of the model diagnostics. Also, get the results that needs to be reported based on the What to report section.
 
-```{r}
+Adjusted R-squared = 0.3118
+F(6,152)=12.93 
+p = 8.782e-12
 
+regression equation: 
+pain=1.96−0.03⋅age+0.32⋅sex(male)−0.01⋅STAI_trait+0.08⋅pain_catastrophizing−0.14⋅mindfulness+0.54⋅cortisol_serum
+
+```{r}
+library(lm.beta)
+
+complex_model_updated <- lm(pain ~ age + sex + STAI_trait + pain_cat + mindfulness + cortisol_serum, data = dataset)
+
+summary(complex_model_updated)
+
+complex_model_coefs <- summary(complex_model_updated)$coefficients
+
+complex_model_beta <- lm.beta(complex_model_updated)
+
+complex_model_confint <- confint(complex_model_updated)
+
+complex_model_table <- data.frame(
+  Predictor = rownames(complex_model_coefs),
+  Unstandardized_B = complex_model_coefs[, "Estimate"],
+  Standardized_Beta = complex_model_beta$standardized.coefficients,
+  `95%_CI_Lower` = complex_model_confint[, 1],
+  `95%_CI_Upper` = complex_model_confint[, 2],
+  P_value = complex_model_coefs[, "Pr(>|t|)"]
+)
+
+print("Complex Model Coefficients")
+print(complex_model_table)
 ```
 
 Compare the two models.
 
+Simpler model: AIC = 575.0584
+More complex model: AIC = 530.7963
+- lower values indicate better fitting models relative to their complexity
+
+F-test for likelihood ratio test: 
+F = 14.788
+p = 3.156e-10
+
+The more complex model provides substantially better explanatory power for the variability in pain. 
+
+
 ```{r}
+anova(simple_model, complex_model_updated)
+
+AIC(simple_model)
+AIC(complex_model_updated)
 
 ```
 
